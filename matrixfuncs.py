@@ -9,9 +9,14 @@ import pprint as pp
 import sympy as sp
 import scipy.linalg as la
 import scipy as sc
+import decimal
+from decimal import Decimal, getcontext, DefaultContext
+De = decimal.Decimal
+DefaultContext.prec = 25
+
 pp = pp.pprint
 EPS = np.finfo(float).eps
-print("{:.52f}".format(EPS))
+# print("{:.52f}".format(EPS))
 As = sp.Matrix([[3, 2, 3],
      [4, 6, 6],
      [7, 4, 9]])
@@ -20,8 +25,241 @@ AM = [[3, 2, 3],      [4, 6, 6],      [7, 4, 9]]
 B = [[5, 5], [6, 7], [9, 9]]
 AN = np.array(AM)
 # print(np.array(A).T)
-print(len("0000000000000002220446049250313080847263336181640625"))
+# print(len("0000000000000002220446049250313080847263336181640625"))
 flatten = lambda l: [item for sublist in l for item in sublist] 
+
+def shape(Ax):
+       rows = len(Ax)
+       cols = len(Ax[0])
+       shape = list((rows, cols))
+       ts = tuple((rows, cols))
+       print("{} Rows x {} Columns".format(ts[0], ts[1]))
+       print(ts)
+       return shape
+   
+def zeros_matrix(rows, cols):
+    """
+    Creates a matrix filled with zeros.
+        :param rows: the number of rows the matrix should have
+        :param cols: the number of columns the matrix should have
+        :return: list of lists that form the matrix
+    """
+    M = []
+    while len(M) < rows:
+        M.append([])
+        while len(M[-1]) < cols:
+            M[-1].append(0.0)
+
+    return M
+
+
+def identity_matrix(n):
+    """
+    Creates and returns an identity matrix.
+        :param n: the square size of the matrix
+        :return: a square identity matrix
+    """
+    IdM = zeros_matrix(n, n)
+    for i in range(n):
+        IdM[i][i] = 1.0
+
+    return IdM    
+   
+def copy_matrix(M):
+    """
+    Creates and returns a copy of a matrix.
+        :param M: The matrix to be copied
+        :return: A copy of the given matrix
+    """
+    # Section 1: Get matrix dimensions
+    rows = len(M)
+    cols = len(M[0])
+
+    # Section 2: Create a new matrix of zeros
+    MC = zeros_matrix(rows, cols)
+
+    # Section 3: Copy values of M into the copy
+    for i in range(rows):
+        for j in range(cols):
+            MC[i][j] = M[i][j]
+
+    return MC
+
+def check_matrix_equality(A, B, tol=None):
+    """
+    Checks the equality of two matrices.
+        :param A: The first matrix
+        :param B: The second matrix
+        :param tol: The decimal place tolerance of the check
+        :return: The boolean result of the equality check
+    """
+    # Section 1: First ensure matrices have same dimensions
+    if len(A) != len(B) or len(A[0]) != len(B[0]):
+        return False
+
+    # Section 2: Check element by element equality
+    #            use tolerance if given
+    for i in range(len(A)):
+        for j in range(len(A[0])):
+            if tol is None:
+                if A[i][j] != B[i][j]:
+                    return False
+            else:
+                if round(A[i][j], tol) != round(B[i][j], tol):
+                    return False
+
+    return True
+
+def check_squareness(A):
+    """
+    Makes sure that a matrix is square
+        :param A: The matrix to be checked.
+    """
+    if len(A) != len(A[0]):
+        raise ArithmeticError("Matrix must be square to inverse.")
+        
+def check_non_singular(A):
+    """
+    Ensure matrix is NOT singular
+        :param A: The matrix under consideration
+        :return: determinant of A - nonzero is positive boolean
+                  otherwise, raise ArithmeticError
+    """
+    det = determinant_fast(A)
+    if det != 0:
+        return det
+    else:
+        raise ArithmeticError("Singular Matrix!")
+  
+def matrix_multiply(A, B):
+    """
+    Returns the product of the matrix A * B
+        :param A: The first matrix - ORDER MATTERS!
+        :param B: The second matrix
+        :return: The product of the two matrices
+    """
+    # Section 1: Ensure A & B dimensions are correct for multiplication
+    rowsA = len(A)
+    colsA = len(A[0])
+    rowsB = len(B)
+    colsB = len(B[0])
+    if colsA != rowsB:
+        raise ArithmeticError(
+            'Number of A columns must equal number of B rows.')
+
+    # Section 2: Store matrix multiplication in a new matrix
+    C = zeros_matrix(rowsA, colsB)
+    for i in range(rowsA):
+        for j in range(colsB):
+            total = 0
+            for ii in range(colsA):
+                total += A[i][ii] * B[ii][j]
+            C[i][j] = total
+
+    return C     
+  
+def determinant_recursive(A, total=0):
+    """
+    Find determinant of a square matrix using full recursion
+        :param A: the matrix to find the determinant for
+        :param total=0: safely establish a total at each recursion level
+        :returns: the running total for the levels of recursion
+    """
+    # Section 1: store indices in list for flexible row referencing
+    indices = list(range(len(A)))
+
+    # Section 2: when at 2x2 submatrices recursive calls end
+    if len(A) == 2 and len(A[0]) == 2:
+        val = A[0][0] * A[1][1] - A[1][0] * A[0][1]
+        return val
+
+    # Section 3: define submatrix for focus column and call this function
+    for fc in indices:  # for each focus column, find the submatrix ...
+        As = copy_matrix(A)  # make a copy, and ...
+        As = As[1:]  # ... remove the first row
+        height = len(As)
+
+        for i in range(height):  # for each remaining row of submatrix ...
+            As[i] = As[i][0:fc] + As[i][fc+1:]  # zero focus column elements
+
+        sign = (-1) ** (fc % 2)  # alternate signs for submatrix multiplier
+        sub_det = determinant_recursive(As)  # pass submatrix recursively
+        total += sign * A[0][fc] * sub_det  # total all returns from recursion
+
+    return total
+
+def determinant_fast(A):
+    # Section 1: Establish n parameter and copy A
+    n = len(A)
+    AM = copy_matrix(A)
+ 
+    # Section 2: Row ops on A to get in upper triangle form
+    for fd in range(n): # A) fd stands for focus diagonal
+        for i in range(fd+1,n): # B) only use rows below fd row
+            if AM[fd][fd] == 0: # C) if diagonal is zero ...
+                AM[fd][fd] == 1.0e-18 # change to ~zero
+            # D) cr stands for "current row"
+            crScaler = AM[i][fd] / AM[fd][fd] 
+            # E) cr - crScaler * fdRow, one element at a time
+            for j in range(n): 
+                AM[i][j] = AM[i][j] - crScaler * AM[fd][j]
+     
+    # Section 3: Once AM is in upper triangle form ...
+    product = 1.0
+    for i in range(n):
+        # ... product of diagonals is determinant
+        product *= AM[i][i] 
+ 
+    return product
+
+def print_matrix(M, decimals=3):
+    """
+    Print a matrix one row at a time
+        :param M: The matrix to be printed
+    """
+    for row in M:
+        print([round(x, decimals)+0 for x in row])
+
+def invert_matrix(A, tol=None):
+    """
+    Returns the inverse of the passed in matrix.
+        :param A: The matrix to be inversed
+ 
+        :return: The inverse of the matrix A
+    """
+    # Section 1: Make sure A can be inverted.
+    check_squareness(A)
+    check_non_singular(A)
+ 
+    # Section 2: Make copies of A & I, AM & IM, to use for row ops
+    n = len(A)
+    AM = copy_matrix(A)
+    I = identity_matrix(n)
+    IM = copy_matrix(I)
+ 
+    # Section 3: Perform row operations
+    indices = list(range(n)) # to allow flexible row referencing ***
+    for fd in range(n): # fd stands for focus diagonal
+        fdScaler = 1.0 / AM[fd][fd]
+        # FIRST: scale fd row with fd inverse. 
+        for j in range(n): # Use j to indicate column looping.
+            AM[fd][j] *= fdScaler
+            IM[fd][j] *= fdScaler
+        # SECOND: operate on all rows except fd row as follows:
+        for i in indices[0:fd] + indices[fd+1:]: 
+            # *** skip row with fd in it.
+            crScaler = AM[i][fd] # cr stands for "current row".
+            for j in range(n): 
+                # cr - crScaler * fdRow, but one element at a time.
+                AM[i][j] = AM[i][j] - crScaler * AM[fd][j]
+                IM[i][j] = IM[i][j] - crScaler * IM[fd][j]
+ 
+    # Section 4: Make sure IM is an inverse of A with specified tolerance
+    if check_matrix_equality(I,matrix_multiply(A,IM),tol):
+        return IM
+    else:
+           # return IM
+            raise ArithmeticError("Matrix inverse out of tolerance.")
 
 def permutations(iterable, r=None):
     # permutations('ABCD', 2) --> AB AC AD BA BC BD CA CB CD DA DB DC
@@ -245,6 +483,27 @@ def transpose(M):
                      tmat[j][i] = M[i][j]
        return tmat
 
+# def transposed(M):
+#        columns = len(M[0][:])
+#        rows = len(M)
+#        vf = 0.0
+#        a = '{}:.{}f{}'.format('{', pr,'}')
+#        a1 = '{}'.format(a)
+#        a2 = str(a1)
+#        a3 = str(a2.format(vf))
+#        a4 = De(a3)
+#        tmat = [[a4 for i in range(rows)] for j in range(columns)]
+#        for i in range(rows):
+#               for j in range(columns):
+#                      vvf = M[i][j]
+#                      ad = '{}:.{}f{}'.format('{', pr,'}')
+#                      a1d = '{}'.format(ad)
+#                      a2d = str(a1d)
+#                      a3d = str(a2d.format(vvf))
+#                      a4d = De(a3d)
+#                      tmat[j][i] = afd
+       # return tmat
+
 def factorial(n):
      if n == 0:
             return 1
@@ -272,6 +531,15 @@ def Gamma(n):
 
 def dot(v1, v2):
      return sum([x*y for x,y in zip(v1,v2)])
+
+def dotd(v1, v2, pr):
+       vv = sum([x*y for x, y in zip(v1, v2)])
+       aa = '{}:.{}f{}'.format('{', pr,'}')
+       aa1 = '{}'.format(aa)
+       aa2 = str(aa1)
+       aa3 = str(aa2.format(vv))
+       aa4 = De(aa3)
+       return aa4
 
 def matmul(A, B):
        acolumns = len(A[0][:])
@@ -351,6 +619,27 @@ def zero(n):
        for nn in range(n):
               mm[nn][nn] = 0.0
        return mm              
+
+def zerod(n, pr):
+       mm = []
+       for ni in range(n):
+               vf = 0.0
+               a = '{}:.{}f{}'.format('{', pr,'}')
+               a1 = '{}'.format(a)
+               a2 = str(a1)
+               a3 = str(a2.format(vf))
+               a4 = De(a3)
+               mm.append([a4 for mi in range(n)])
+       
+       for nn in range(n):
+               vfb = 0.0
+               ab = '{}:.{}f{}'.format('{', pr,'}')
+               a1b = '{}'.format(ab)
+               a2b = str(a1b)
+               a3b = str(a2b.format(vfb))
+               a4b = De(a3b)
+               mm[nn][nn] = a4b
+       return mm 
 
 def rowred(A):
        rows = len(A)
@@ -500,6 +789,102 @@ def LU_decomposition(A):
 
     return L, U
 
+def LU_decompositiond(A, pr):
+    """Perform LU decomposition using the Doolittle factorisation."""
+
+    L = zerod(len(A), pr)
+    U = zerod(len(A), pr)
+    N = len(A)
+    
+    def uvals(Um, k, n):
+            ulist = []
+            for i in range(k):
+                  uu = Um[i][n]
+                  ulist.append(uu)
+            return ulist
+     
+    def lvals(Lm, k, n):
+            llist = []
+            lu = Lm[k]
+            lul = lu[0:k]
+            # print(lul)
+            return lul
+    
+    def uvalsd(Um, k, n, pr):
+            ulist = []
+            for i in range(k):
+                  uu = Um[i][n]
+                  aa = '{}:.{}f{}'.format('{', pr,'}')
+                  aa1 = '{}'.format(aa)
+                  aa2 = str(aa1)
+                  aa3 = str(aa2.format(uu))
+                  aa4 = De(aa3)
+                  ulist.append(aa4)
+            return ulist
+     
+    def lvalsd(Lm, k, n, pr):
+            llist = []
+            lu = Lm[k]
+            lul = lu[0:k]
+            # print(lul)
+            for i in range(len(lul)):
+                     val_ij = lul[i]
+                     aa = '{}:.{}f{}'.format('{' , pr,'}')
+                     aa1 = '{}'.format(aa)
+                     aa2 = str(aa1)
+                     aa3 = str(aa2.format(val_ij))
+                     aa4 = De(aa3)
+                     llist.append(aa4)
+            # print(lul)
+            # print(llist)
+            return lul
+       
+    for k in range(N):
+        v1 = 1.0
+        a = '{}:.{}f{}'.format('{', pr,'}')
+        a1 = '{}'.format(a)
+        a2 = str(a1)
+        a3 = str(a2.format(v1))
+        a4 = De(a3)
+        L[k][k] = a4
+        v2 = (A[k][k] - dotd(lvalsd(L, k, k, pr), uvalsd(U, k, k, pr), pr)) / L[k][k]
+        ab = '{}:.{}f{}'.format('{', pr,'}')
+        ab1 = '{}'.format(ab)
+        ab2 = str(ab1)
+        ab3 = str(ab2.format(v2))
+        ab4 = De(ab3)
+        # print(ab4)
+        U[k][k] = ab4
+        for j in range(k+1, N):
+              val_i = float((A[k][j] - dotd(lvalsd(L, k, k, pr), uvalsd(U, j, j, pr), pr)) / L[k][k])
+              aa = '{}:.{}f{}'.format('{', pr,'}')
+              aa1 = '{}'.format(aa)
+              aa2 = str(aa1)
+              aa3 = str(aa2.format(val_i))
+              aa4 = De(aa3)
+              U[k][j] = aa4
+        for i in range(k+1, N):
+              val_ib = float((A[i][k] - dotd(lvalsd(L, i, i, pr), uvalsd(U, k, k, pr), pr)) / U[k][k])
+              aab = '{}:.{}f{}'.format('{', pr,'}')
+              aa1b = '{}'.format(aab)
+              aa2b = str(aa1b)
+              aa3b = str(aa2b.format(val_ib))
+              aa4b = De(aa3b)
+              L[i][k] = aa4b
+
+    return L, U
+
+def backward_sub(U, y):
+    """Given a lower triangular matrix U and right-side vector y,
+    compute the solution vector x solving Ux = y."""
+
+    # x = zero(len(y))
+    x = [0.0 for ix in y]
+
+    for i in range(len(x), 0, -1):
+      x[i-1] = De((y[i-1] - dot(U[i-1][i:], x[i:])) / U[i-1][i-1])
+
+    return x
 
 def forward_sub(L, b):
     """Given a lower triangular matrix L and right-side vector b,
@@ -514,29 +899,81 @@ def forward_sub(L, b):
 
     return y
 
-def backward_sub(U, y):
+
+
+    return x
+
+def forward_subd(L, b, pr):
+    """Given a lower triangular matrix L and right-side vector b,
+    compute the solution vector y solving Ly = b."""
+
+    y = []
+    for i in range(len(b)):
+        y.append(b[i])
+        for j in range(i):
+              val_i = y[i]-(L[i][j]*y[j])
+              aa = '{}:.{}f{}'.format('{', pr,'}')
+              aa1 = '{}'.format(aa)
+              aa2 = str(aa1)
+              aa3 = str(aa2.format(val_i))
+              aa4 = De(aa3)
+              y[i]= aa4
+        y[i] = De(y[i])/De(L[i][i])
+
+    return y
+
+def backward_subd(U, y, pr):
     """Given a lower triangular matrix U and right-side vector y,
     compute the solution vector x solving Ux = y."""
 
-    x = zero(len(y))
+    # x = zerod(len(y))
+    x = [De(0.0) for ix in y]
 
     for i in range(len(x), 0, -1):
-      x[i-1] = (y[i-1] - dot(U[i-1][i:], x[i:])) / U[i-1][i-1]
-
+       val_i = (y[i-1] - dot(U[i-1][i:], x[i:])) / U[i-1][i-1]
+       aa = '{}:.{}f{}'.format('{', pr,'}')
+       aa1 = '{}'.format(aa)
+       aa2 = str(aa1)
+       aa3 = str(aa2.format(val_i))
+       aa4 = De(aa3)
+       x[i-1] = aa4
+       
     return x
+
+
 
 def lu_solve(L, U, b):
     # Step 1: Solve Uy = b using forward substitution
     # Step 2: Solve Lx = y using backward substitution
-    y = forward_sub(L,b)
-    x = backward_sub(U,y)
+    y = forward_sub(L, b)
+    x = backward_sub(U, y)
     return x
 
 def linear_solve(A, b):
     L, U = LU_decomposition(A)
-    x = lu_solve(L, U,b)
+    x = lu_solve(L, U, b)
     return x
 
+def lu_solved(L, U, b, pr):
+    # Step 1: Solve Uy = b using forward substitution
+    # Step 2: Solve Lx = y using backward substitution
+    y = forward_subd(L, b, pr)
+    yv = []
+    for i in range(len(y)):
+       val_yi = float(y[i])
+       aa = '{}:.{}f{}'.format('{', pr,'}')
+       aa1 = '{}'.format(aa)
+       aa2 = str(aa1)
+       aa3 = str(aa2.format(val_yi))
+       aa4 = De(aa3)
+       yv.append(aa4)
+    x = backward_subd(U, yv, pr)
+    return x
+
+def linear_solved(Ad, bd, pr):
+    Ld, Ud = LU_decompositiond(Ad, pr)
+    x = lu_solved(Ld, Ud, bd, pr)
+    return x
 
 def LUdecomp(a):
     n = len(a)
@@ -585,6 +1022,36 @@ def csc_groups(A):
                             data_l.append(A[i][j])
        return rows_l, cols_l, data_l
 
+def decfunc(Ax, p):
+       rows = len(Ax)
+       cols = len(Ax[0])
+       AD = [[De(ij) for ij in Ax[ii]] for ii in range(len(Ax))]
+       for i in range(rows):
+              for j in range(cols):
+                     decimal.getcontext().prec = 25
+                     val_ij = Ax[i][j]
+                     aa = '{}:.{}f{}'.format('{',p,'}')
+                     aa1 = '{}'.format(aa)
+                     aa2 = str(aa1)
+                     aa3 = str(aa2.format(val_ij))
+                     aa4 = De(aa3)
+                     AD[i][j] = aa4
+                     Ax[i][j] = aa4
+       return AD, Ax
+       
+def decfuncl(Axl, p):
+       vals = len(Axl)
+       ADl = [De(il) for il in Axl]
+       for i in range(vals):
+              val_i = Axl[i]
+              aa = '{}:.{}f{}'.format('{',p,'}')
+              aa1 = '{}'.format(aa)
+              aa2 = str(aa1)
+              aa3 = str(aa2.format(val_i))
+              aa4 = De(aa3)
+              ADl[i] = aa4
+       return ADl
+
 Av, IIa = rowred(AM)
 B, IF = solsys(Av, IIa)
 # pp((np.array(IF)).tolist())
@@ -593,10 +1060,34 @@ B, IF = solsys(Av, IIa)
 # pp(np.array(IIa))
 # pp(np.array(B))
 # pp(np.array(IF))
-
 AA = np.array([[3, 2, 3],     [4, 6, 6],     [7, 4, 9]])
+AAd = np.array([[3.0, 2.0, 3.0],     [4.0, 6.0, 6.0],     [7.0, 4.0, 9.0]])
+Ab = [[3.0, 2.0, 3.0, 4.0],     
+      [4.0, 6.0, 6.0, 8.0],     
+      [7.0, 4.0, 9.0, 11.0],
+      [5.0, 4.0, 9.0, 16.0]]
+
+As = shape(Ab)
+Adet = determinant_fast(Ab)
+Abinv = invert_matrix(Ab, 1)
+Abinv2 = la.inv(np.array(Ab))
+print(Adet, np.linalg.det(np.array(Ab)), la.det(np.array(Ab)))
+print_matrix(Abinv)
+print(Abinv2)
+AAD, AAX = decfunc(AAd, 25)
+# print(AAX, AAD)
+ATX = transpose(AAD)
 aa = transpose([[3, 4, 7], [2, 6, 4], [3, 6, 9]])
-L, U = LU_decomposition(aa)
+bd = decfuncl([6.0, -4.0, 27.0], 25)
+# print(bd)
+L, U = LU_decomposition(AA)
+Lx, UX = LU_decompositiond(AAD, 25)
+# print(Lx, UX)
+Px, Llx, UuX = la.lu(ATX)
+LUX = la.lu_factor(AAD)
+# print(U)
+xd = linear_solved(AAD, bd, 25)
+# print(xd)
 # LUf(AM)
 # print(P)
 # print(np.array(L))
@@ -607,26 +1098,27 @@ P, LL, UU = la.lu(AA.T)
 # print(np.array(LL))
 # print(np.array(UU))
 
-b = [6,-4,27]
+b = [6, -4, 27]
 As = [[3, 2, 3],     [4, 6, 6],     [7, 4, 9]]
 LU = la.lu_factor(As)
 x = la.lu_solve(LU, b)
-print(linear_solve(As,b))
-print(x)
+# print(linear_solve(As,b))
+# print(x)
 
 ZS, NZS, TOT, sps = sparsity([[3, 0, 3],     [4, 0.0, 0],     [0, 4, 9]])
-print(ZS, NZS, TOT, sps)
+# print(ZS, NZS, TOT, sps)
 
 S6 = 6**0.5
-
+S6d = De(S6)
+# print(S6d)
 P = [[13/3 + 7*S6/3, -23/3 - 22*S6/3, 10/3 + 5 * S6],
     [13/3 - 7*S6/3, -23/3 + 22*S6/3, 10/3 - 5 * S6],
     [1/3, -8/3, 10/3]]
-print(P)
+# print(P)
 row = np.array([0, 0, 0, 1, 1, 1, 2, 2, 2])
 col = np.array([0, 1, 2, 0, 1, 2, 0, 1, 2])
 data = np.array([3, 2, 3, 4, 6, 6, 7, 4, 9])
-print(sc.sparse.csc_matrix((data,(row,col)), shape=(3,3)).todense() )
+# print(sc.sparse.csc_matrix((data,(row,col)), shape=(3,3)).todense() )
 rowsl, colsl, datal = csc_groups(As)
 # print(rowsl, colsl, datal)
-print(sc.sparse.csc_matrix((datal,(rowsl,colsl)), shape=(3,3)).todense() )
+# print(sc.sparse.csc_matrix((datal,(rowsl,colsl)), shape=(3,3)).todense() )
