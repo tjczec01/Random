@@ -33,16 +33,16 @@ import inspect
 # from mpmath import *
 
 flatten = lambda l: [item for sublist in l for item in sublist] 
-
-mps.dps = 26 
-mps.prec = 50
+PREC = [int(75)]
+mps.dps = PREC[0] 
+mps.prec = PREC[0]
 
 # prec = 25
 
 S6 = 6 ** 0.5
 Eb = [-13 - 7 * S6, -13 + 7 * S6, -1] 
 E = [ei/3.0 for ei in Eb]
-Ef = df.DF(E, 25).decfuncl(E)
+Ef = df.DF(E, PREC[0]).decfuncl(E)
 order = 5
 # X = bt.butcher(order, 25)
 # A, B, C = X.radau() 
@@ -78,13 +78,13 @@ T = [[0.0944387624889745, -0.141255295020953, 0.0300291941051473],
      [0.250213122965334, 0.204129352293798, -0.38294211275726], 
      [1.0, 1.0, 0.0]]
 
-TD = df.DF(T, 25).decfunc()
+TD = df.DF(T, PREC[0]).decfunc()
 
 TI = [[4.178718591551935, 0.32768282076106514, 0.5233764454994487], 
       [-4.178718591551935, -0.3276828207610649, 0.476623554500551], 
       [0.5028726349458223, -2.571926949855616, 0.5960392048282263]]
 
-TID = df.DF(TI, 25).decfunc()
+TID = df.DF(TI, PREC[0]).decfunc()
 # print(TID)
 
 P = [[10.048809399827414, -25.62959144707665, 15.580782047249254], 
@@ -92,7 +92,7 @@ P = [[10.048809399827414, -25.62959144707665, 15.580782047249254],
      [0.3333333333333328, -2.6666666666666616, 3.333333333333328]]
 
 
-PD = df.DF(P, 25).decfunc()
+PD = df.DF(P, PREC[0]).decfunc()
 # print(PD)
 
 NEWTON_MAXITER = 6  # Maximum number of Newton iterations.
@@ -241,18 +241,18 @@ def normd(A):
        for i in range(rows):
               
               for j in range(cols):
-                     vi = abs(A[i][j])**2
+                     vi = dm(abs(A[i][j]), PREC[0])**dm(2, PREC[0])
                      vals.append(vi)
                      
-       vf = dm(sum(vals)**(1/2), 25)
+       vf = dm(sum(vals), PREC[0])**dm(1/2, PREC[0])
        return vf
 
-a = np.arange(9) - 4
+# a = np.arange(9) - 4
 # print(normd([[-4, -3, -2], [-1, 0, 1], [2, 3, 4]]))
 # print(7.745966692414834)
-v1 = ComplexDecimal(TI_COMPLEX[0], 25) 
-v2 = ComplexDecimal(TI_COMPLEX[1], 25) 
-v3 = ComplexDecimal(TI_COMPLEX[2], 25)                     
+v1 = ComplexDecimal(TI_COMPLEX[0], PREC[0]) 
+v2 = ComplexDecimal(TI_COMPLEX[1], PREC[0]) 
+v3 = ComplexDecimal(TI_COMPLEX[2], PREC[0])                     
 TI_COMPLEXb = [v1, v2, v3]
 # print(TI_COMPLEXb[0])
 # for i in TI_COMPLEX:
@@ -261,8 +261,8 @@ TI_COMPLEXb = [v1, v2, v3]
 #        TI_COMPLEXb.append(vv)
 # print(v1, v2, v3)
 
-MU_REALd = dm(3.637834252744502, 25)
-MU_COMPLEXd = ComplexDecimal(2.6810828736277488 - 3.050430199247423j, 25)
+MU_REALd = dm(3.637834252744502, PREC[0])
+MU_COMPLEXd = ComplexDecimal(2.6810828736277488 - 3.050430199247423j, PREC[0])
 # print(complex(2.6810828736277488 , -3.050430199247423) / complex(1.4 , -5.0))
 # DC2 = DCD(complex(2.6810828736277488 , -3.050430199247423), complex(1.4 , -5.0), 25)
 # print(DC2)
@@ -317,6 +317,7 @@ def solve_collocation_system(fun, t, y, h, Z0, scale, tol,
     n = len([y])
     M_real = MU_REAL / h
     M_complex = MU_COMPLEX / float(h) #DCD(MU_COMPLEX, h, prec) 
+    ch = [dm(h*i, prec) for i in range(len(C))]
     # X = df.DF(TI, prec)
     # ZZ = flatten(Z0)
     # print(Z0)
@@ -325,7 +326,12 @@ def solve_collocation_system(fun, t, y, h, Z0, scale, tol,
     for i in range(3):
             for j in range(n):
                    # print(fun(t + float(h)*float(C[i]), dm(y[0], prec)))
-                   ZP[i][j] = (fun(t + float(h)*float(C[i]), y + (Z0[i][j]))).tolist()
+                   try:
+                       ZP[i][j] = fun(dm(t + float(h)*float(C[i]), prec), dm(y, prec) + (dm(Z0[i][j], prec))).tolist()
+                   except:
+                       # print(fun(t + float(h)*float(C[i]), dm(y[0], prec) + (dm(Z0[i][j], prec))).tolist()[0])
+                       ZP[i][j] = [dm(fun(dm(t + float(h)*float(C[i]), prec), dm(y[0], prec) + (dm(Z0[i][j], prec))).tolist()[0], prec)]
+                   # ZP[i][j] = (fun(t + float(h)*float(C[i]), dm(y[0], prec) + (dm(Z0[i][j], prec)))).tolist()
     Z0P = np.array(flatten(ZP))
     # print(Z0P, ZP)
     # Wb = np.array(TID).dot(Z0)
@@ -342,7 +348,7 @@ def solve_collocation_system(fun, t, y, h, Z0, scale, tol,
            # W = Ti.dot(Z0P)
            W = np.array(np.array(TID).dot(Zd))
     except:
-           W = np.array(np.array(TID).dot(Zd), dtype=float)
+           W = np.array(np.array(TID).dot(Zd)) #, dtype=float
     wr = len(W)
     wc = len([W[0]])
     Z = Z0
@@ -352,7 +358,7 @@ def solve_collocation_system(fun, t, y, h, Z0, scale, tol,
     # F = [dm(0.0, prec) for i in range(3)]
     F = np.empty((3, n))
     # ch = h * C
-    ch = [h*i for i in range(len(C))]
+    ch = [dm(h*i, prec) for i in range(len(C))]
     dW_norm_old = None
     # dW = X.zeros_matrix(wr, wc)
     dW = np.empty_like(W)
@@ -363,13 +369,17 @@ def solve_collocation_system(fun, t, y, h, Z0, scale, tol,
     for k in range(NEWTON_MAXITER):
         for i in range(3):
                # for j in range(n):
-                   # print(F, t, ch, Z[i], y)
+                   # print(y, Z[i])
                    # yy = float(y[0])
                    # F[i] = fun(dm(t, prec) + dm(ch[i], prec), dm(y[0], prec) + dm(Z[i][0], prec))
                    try:
-                       F[i] = fun(t + float(ch[i]), dm(y[0], prec) + dm(Z[i][0], prec))
+                       F[i] = dm(fun(dm(t, prec) + ch[i], dm(y, prec) + dm(Z[i][0], prec)), prec)
                    except:
-                       F[i] = fun(t + float(ch[i]), dm(y, prec) + dm(Z[i][0], prec))
+                       try:
+                           F[i] = dm(fun(dm(t, prec) + ch[i], dm(y, prec) + dm(Z[i][0], prec))[0], prec)
+                       except:
+                           F[i] = dm(fun(dm(t, prec) + ch[i], dm(y[0], prec) + dm(Z[i][0], prec))[0], prec)
+                           # F[i] = dm(fun(t + float(ch[i]), dm(y[0], prec) + dm(Z[i][0], prec))[0], prec)
 
         if not np.all(np.isfinite(F)):
             break
@@ -382,12 +392,22 @@ def solve_collocation_system(fun, t, y, h, Z0, scale, tol,
         FTR = f_realm.dot(np.array(TI_REAL))
         # print(FTR)
         # print(W)
-        mrw = M_real*float(W[0])
+        mrw = dm(M_real, prec)*dm(W[0][0], prec)
         MRW = [dm(M_real, prec) * dm(wi, prec) for wi in W[0]]
         # print(MRW)
         # f_real = FTR - mrw
         # f_real = [dm(i, prec) - dm(j, prec) for i, j in zip(FTR, MRW)]
-        f_real = F.T.dot(TI_REAL) - M_real * float(W[0])
+        try:
+            try:
+                f_real = [dm(F.T.dot(TI_REAL), prec) - dm(M_real[0], prec) * dm(W[0][0], prec)]
+            except:
+                try:
+                    f_real = [dm(F.T.dot(TI_REAL)[0], prec) - dm(M_real, prec) * dm(W[0][0], prec)]
+                except:
+                    f_real = [dm(F.T.dot(TI_REAL)[0], prec) - dm(M_real[0], prec) * dm(W[0], prec)]
+        except:
+            f_real = [dm(F.T.dot(TI_REAL), prec) - dm(M_real[0], prec) * dm(W[0][0], prec)]
+        # f_real = F.T.dot(TI_REAL) - M_real * float(W[0])
         # print(np.dot(F.T, TI_REAL))
         fc = df.DF(F, prec)
         # fc2 = fc.TD() 
@@ -432,7 +452,7 @@ def solve_collocation_system(fun, t, y, h, Z0, scale, tol,
         dW2[2] = dW_complex[0].imag
         # print(dW)
         # print(dW)
-        dW_norm = norm(dW2/float(scale))
+        dW_norm = normd(dW/scale)
         if dW_norm_old is not None:
             rate = dW_norm / dW_norm_old
 
@@ -620,7 +640,7 @@ class RadauD(OdeSolver):
             def lu(A):
                 self.nlu += 1
                 A1 = df.DF(A, self.prec)
-                L, U = A1.LU_decompositionf()
+                L, U = A1.LU_decompositiond()
                 return L, U
                 # return splu(A)
 
@@ -635,7 +655,7 @@ class RadauD(OdeSolver):
             def lu(A):
                 self.nlu += 1
                 A1 = df.DF(A, self.prec)
-                L, U = A1.LU_decompositionf()
+                L, U = A1.LU_decompositiond()
                 return L, U
 
             def solve_lu(L, U, b):
@@ -939,10 +959,10 @@ class RadauD(OdeSolver):
         return step_accepted, message
 
     def _compute_dense_output(self):
-        # Qb = df.DF(Z, prec)
-        # Q = Qb.matrix_multiplyd(df.DF(Z, prec).TD(), df.DF(P, prec).decfunc(), prec)
+        Qb = df.DF(self.Z, self.prec)
+        Q = Qb.matrix_multiplyd(df.DF(self.Z, self.prec).TD(), df.DF(P, self.prec).decfunc(), self.prec)
         # Q = np.dot(np.array(self.Z).T, PD)
-        Q = np.dot(np.array(self.Z, dtype=float).T, P)
+        # Q = np.dot(np.array(self.Z).T, PD)
         return RadauDenseOutput(self.t_old, self.t, self.y_old, Q, self.prec)
 
     def _dense_output_impl(self):
@@ -954,24 +974,29 @@ class RadauDenseOutput(DenseOutput):
         super(RadauDenseOutput, self).__init__(t_old, t)
         self.h = t - float(t_old)
         self.Q = Q
-        self.order =  Q.shape[1] - 1
+        self.order =  np.array(Q).shape[1] - 1
         self.y_old = y_old
         self.prec = prec
 
     def _call_impl(self, t):
         x = (np.array(t, dtype=float) - np.array(self.t_old, dtype=float)) / float(self.h)
-        # print(x)
+        # print(x[0], x[-1])
+        xd = [dm(xi, self.prec) for xi in x.tolist()]
         if t.ndim == 0:
-            pb = np.tile(x, self.order + 1)
+            pb = np.tile(np.array(xd), self.order + 1, 0)
             p = np.cumprod(pb)
         else:
-            pb = np.tile(x, (self.order + 1, 1))
+            pb = np.tile(np.array(xd), (self.order + 1, 1))
             p = np.cumprod(pb, axis=0)
         # Here we don't multiply by h, not a mistake.
         # QQ = df.DF(self.Q, self.prec)
         # print("p: {}".format(p))
         # y = QQ.matrix_multiplyd([self.Q], [p], self.prec)
-        
+        # print(p, p.tolist())
+        try:
+            pl = [[dm(pii, self.prec) for pii in range(len(p.tolist()[0]))] for pi in p.tolist()]
+        except:
+            pl = dm(p[0], self.prec)
         y = np.dot(self.Q, p)
         yv = y.tolist()[0]
         # print(yv, self.y_old)
@@ -982,8 +1007,17 @@ class RadauDenseOutput(DenseOutput):
         if y.ndim == 2:
             # print(yf)  
             try:
-                y += self.y_old[0]
-                yvb = [dm(i, self.prec) + dm(self.y_old[0], self.prec) for i in yv]
+                # y += self.y_old[0]
+                try:
+                    yvb = [dm(i, self.prec) + dm(self.y_old[0], self.prec) for i in yv]
+                except:
+                    try:
+                        yvb = [dm(i[0], self.prec) + dm(self.y_old, self.prec) for i in yv]
+                    except:
+                        try:
+                            yvb = [dm(i, self.prec) + dm(self.y_old, self.prec) for i in yv]
+                        except:
+                            yvb = [dm(i[0], self.prec) + dm(self.y_old[0], self.prec) for i in yv]
             except:
                 # y += self.y_old
                 yvb = [dm(i, self.prec) + dm(self.y_old, self.prec) for i in yv]
@@ -997,13 +1031,15 @@ def exponential_decay(t, y):
        # preci = args
        try:
               # yn = [float(-0.5)*float(i) for i in y]
-              yn = [dm(float(-0.5)*float(i), 25) for i in y]
+              yn = [dm(-0.5, PREC[0])*dm(i, PREC[0]) for i in y]
+              # print(yn)
               return yn
               # print(yn)
               
        except:
               # print(y)
-              yn = dm(float(-0.5)*float(y), 25)
+              yn = dm(-0.5, PREC[0])*dm(y, PREC[0])
+              # print([yn])
               return [yn]
        
 METHODS = {'RadauD' : RadauD}
@@ -1495,7 +1531,7 @@ def solve_ivpd(fun, t_span, y0, method='RK45', t_eval=None, dense_output=False,
 
     if t_eval is None:
         ts = [t0]
-        ys = [y0]
+        ys = [dm(y0, PREC[0])]
     elif t_eval is not None and dense_output:
         ts = []
         ti = [t0]
@@ -1566,7 +1602,7 @@ def solve_ivpd(fun, t_span, y0, method='RK45', t_eval=None, dense_output=False,
 
         if t_eval is None:
             ts.append(t)
-            ys.append(y)
+            ys.append(dm(y, PREC[0]))
         else:
             # The value in t_eval equal to t will be included.
             if solver.direction > 0:
@@ -1583,7 +1619,8 @@ def solve_ivpd(fun, t_span, y0, method='RK45', t_eval=None, dense_output=False,
                 if sol is None:
                     sol = solver.dense_output()
                 ts.append(t_eval_step)
-                ys.append(sol(t_eval_step))
+                # print(sol(t_eval_step).tolist()[-1])
+                ys.append(sol(t_eval_step).tolist()[-1])
                 t_eval_i = t_eval_i_new
         
         if t_eval is not None and dense_output:
@@ -1597,10 +1634,11 @@ def solve_ivpd(fun, t_span, y0, method='RK45', t_eval=None, dense_output=False,
 
     if t_eval is None:
         ts = np.array(ts)
-        ys = np.vstack(ys).T
+        ys = df.DF(ys.tolist(), PREC[0]).TD()
     else:
         ts = np.hstack(ts)
-        ys = np.hstack(ys)
+        # print(np.hstack(ys))
+        ys = df.DF([np.hstack(ys)], PREC[0]).decfunc() #np.hstack(ys)
 
     if dense_output:
         if t_eval is None:
@@ -1615,12 +1653,15 @@ def solve_ivpd(fun, t_span, y0, method='RK45', t_eval=None, dense_output=False,
                      status=status, message=message, success=status >= 0)
 
 
-PREC = [int(25)]
+
 solb = solve_ivp(exponential_decay, [0.0, 2.0], [0.5], method='Radau', jac=[[-0.5]])
 # print(solb.t)
 print(solb.y[0])
 tevs = solb.t.tolist()
 # print(tevs)
-sol = solve_ivpd(exponential_decay, [0.0, 2.0], [dm(0.5, PREC[0])], t_eval=tevs, method='RadauD', jac=[[dm(-0.5, 25)]], first_step=0.15, max_step=0.5, prec=PREC[0])
+sol = solve_ivpd(exponential_decay, [0.0, 2.0], [dm(0.5, PREC[0])], t_eval=tevs, method='RadauD', jac=[[dm(-0.5, PREC[0])]], first_step=0.1, max_step=0.25, prec=PREC[0])
 # print(sol.t)
 print(sol.y[0])
+# print(sol.y[0][0])
+
+
