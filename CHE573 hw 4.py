@@ -20,7 +20,7 @@ Github:  https://github.com/tjczec01
 import pandas as pd
 import math as mt
 
-df = pd.read_excel(r'C:\Users\tjcze\Downloads\StandardDevLJ.xlsx')
+df = pd.read_excel(r'excilefilepath.xlsx')
 energy_list = df['-205.03321714472892'].tolist()
 # print(energy_list)
 
