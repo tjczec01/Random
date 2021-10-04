@@ -27,7 +27,7 @@ energy_list = df['-205.03321714472892'].tolist()
 def std_dev(pop_list):
     N = len(pop_list)
     AVG = sum(pop_list)/len(pop_list)
-    subtracted_values = [abs(i - AVG) for i in pop_list]
+    subtracted_values = [abs(i - AVG)**2 for i in pop_list]
     numerator = sum(subtracted_values)
     final_value = mt.sqrt(numerator/N)
     return final_value
